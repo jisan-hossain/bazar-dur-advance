@@ -1,90 +1,237 @@
-import React, { Suspense } from 'react';
+
+"use client";
+
+import React, { Suspense, use, useEffect, useState } from "react";
 
 interface Product {
   [key: string]: any;
 }
 
-export async function generateStaticParams() {
-  return [
-    { slug: 'chal' },
-    { slug: 'dal' },
-    { slug: 'tel' },
-    { slug: 'sobji' },
-    { slug: 'mach' },
-    { slug: 'mangsho' },
-    { slug: 'dim-dui' },
-    { slug: 'mosla' },
-  ];
+type SortOrder = "default" | "low-to-high" | "high-to-low";
+
+const categoryNames: Record<string, string> = {
+  chal: "চাল",
+  dal: "ডাল",
+  tel: "তেল",
+  sobji: "সবজি",
+  mach: "মাছ",
+  mangsho: "মাংস",
+  "dim-dui": "ডিম-দুধ",
+  mosla: "মসলা",
+};
+
+async function fetchProducts(slug: string): Promise<Product[]> {
+  const res = await fetch(
+    `https://openapi.programming-hero.com/api/bazardor/products?category=${slug}`
+  );
+
+  if (!res.ok) {
+    throw new Error("পণ্য লোড করা যায়নি");
+  }
+
+  const data = await res.json();
+
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data)) return data;
+
+  return [];
 }
 
-async function CategoryContent({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  let products: Product[] = [];
+function CategoryContent({ slug }: { slug: string }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  try {
-    const res = await fetch(
-      `https://openapi.programming-hero.com/api/bazardor/products?category=${slug}`
-    );
-    const data = await res.json();
+  useEffect(() => {
+    let cancelled = false;
 
-    if (data && Array.isArray(data.data)) {
-      products = data.data;
-    } else if (Array.isArray(data)) {
-      products = data;
+    async function loadProducts() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await fetchProducts(slug);
+
+        if (!cancelled) {
+          setProducts(data);
+        }
+      } catch (err) {
+        console.error("Error fetching category products:", err);
+
+        if (!cancelled) {
+          setError("পণ্য লোড করা যায়নি। আবার চেষ্টা করুন।");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  } catch (error) {
-    console.error("Error fetching category products:", error);
-  }
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  const sortedProducts = [...products].sort((a, b) => {
+    const priceA = Number(a.today ?? a.price ?? 0);
+    const priceB = Number(b.today ?? b.price ?? 0);
+
+    if (sortOrder === "low-to-high") {
+      return priceA - priceB;
+    }
+
+    if (sortOrder === "high-to-low") {
+      return priceB - priceA;
+    }
+
+    return 0;
+  });
 
   return (
     <>
-      <div className="bg-[#EAF5F0] border border-[#CDEADF] rounded-2xl p-6">
-        <h1 className="text-2xl font-bold text-gray-900 uppercase">{slug}</h1>
-        <p className="text-xs text-gray-600 mt-1">প্রতি পণ্যের আজকের দাম ও পরিবর্তন</p>
-      </div>
+      {/* Category heading */}
+      <section className="rounded-2xl border border-[#CDEADF] bg-[#EAF5F0] p-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          {categoryNames[slug] || slug}
+        </h1>
 
-      {products.length === 0 ? (
-        <p className="text-sm text-gray-400">
-          এই ক্যাটাগরিতে কোনো পণ্য পাওয়া যায়নি...
+        <p className="mt-1 text-xs text-gray-600">
+          প্রতি পণ্যের আজকের দাম ও পরিবর্তন
         </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {products.map((item, index) => {
-            const isUp = item.change?.dir === 'up';
-            const isDown = item.change?.dir === 'down';
+      </section>
+
+      {/* Sort dropdown */}
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4">
+        <p className="text-sm text-gray-500">
+          {loading
+            ? "পণ্য লোড হচ্ছে..."
+            : `মোট ${products.length}টি পণ্য দেখানো হচ্ছে`}
+        </p>
+
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="price-sort"
+            className="text-sm text-gray-500"
+          >
+            সাজান
+          </label>
+
+          <select
+            id="price-sort"
+            value={sortOrder}
+            onChange={(e) =>
+              setSortOrder(e.target.value as SortOrder)
+            }
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+          >
+            <option value="default">ডিফল্ট</option>
+            <option value="low-to-high">দাম কম থেকে বেশি</option>
+            <option value="high-to-low">দাম বেশি থেকে কম</option>
+          </select>
+        </div>
+      </section>
+
+      {/* Loading */}
+      {loading && (
+        <p className="py-8 text-center text-sm text-gray-400">
+          পণ্য লোড হচ্ছে...
+        </p>
+      )}
+
+      {/* Error */}
+      {!loading && error && (
+        <div className="space-y-3 py-8 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSortOrder("default");
+              setLoading(true);
+              setError("");
+              fetchProducts(slug)
+                .then(setProducts)
+                .catch((err) => {
+                  console.error(err);
+                  setError("পণ্য লোড করা যায়নি। আবার চেষ্টা করুন।");
+                })
+                .finally(() => setLoading(false));
+            }}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+          >
+            আবার চেষ্টা করুন
+          </button>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && products.length === 0 && (
+        <p className="py-8 text-center text-sm text-gray-400">
+          এই ক্যাটাগরিতে কোনো পণ্য পাওয়া যায়নি।
+        </p>
+      )}
+
+      {/* Product cards */}
+      {!loading && !error && sortedProducts.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {sortedProducts.map((item, index) => {
+            const isUp = item.change?.dir === "up";
+            const isDown = item.change?.dir === "down";
 
             return (
-              <div key={index} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{item.image || '🛒'}</span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-sm">{item.nameBn || item.name}</h3>
-                    <p className="text-xs text-gray-400">প্রতি {item.unit || 'kg'}</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">{item.today || 0} টাকা</p>
+              <article
+                key={item.id ?? item._id ?? index}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  {item.image &&
+                  String(item.image).startsWith("http") ? (
+                    <img
+                      src={item.image}
+                      alt={item.nameBn || item.name || "পণ্য"}
+                      className="h-12 w-12 shrink-0 rounded-xl bg-gray-50 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F0F5F0] text-2xl">
+                      {item.image || "🛒"}
+                    </span>
+                  )}
+
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold text-gray-800">
+                      {item.nameBn || item.name}
+                    </h3>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                      প্রতি {item.unit || "kg"}
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-gray-900">
+                      {item.today ?? item.price ?? 0} টাকা
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  {isUp && (
-                    <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md">
-                      ▲ {item.change?.pct || 0}%
+
+                <div className="shrink-0 text-right">
+                  {isUp ? (
+                    <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                      ▲ {item.change?.pct ?? 0}%
                     </span>
-                  )}
-                  {isDown && (
-                    <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md">
-                      ▼ {item.change?.pct || 0}%
+                  ) : isDown ? (
+                    <span className="rounded-md bg-green-50 px-2 py-1 text-xs font-semibold text-green-600">
+                      ▼ {item.change?.pct ?? 0}%
                     </span>
-                  )}
-                  {!isUp && !isDown && (
-                    <span className="text-xs font-semibold text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
-                      - 0%
+                  ) : (
+                    <span className="rounded-md bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-500">
+                      − 0%
                     </span>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
@@ -93,17 +240,33 @@ async function CategoryContent({
   );
 }
 
+function CategoryFallback() {
+  return (
+    <p className="py-8 text-center text-sm text-gray-400">
+      লোড হচ্ছে...
+    </p>
+  );
+}
+
+function CategoryPageContent({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = use(params);
+
+  return <CategoryContent slug={slug} />;
+}
+
 export default function CategoryPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   return (
-    <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <Suspense
-        fallback={<p className="text-sm text-gray-400">লোড হচ্ছে...</p>}
-      >
-        <CategoryContent params={params} />
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8">
+      <Suspense fallback={<CategoryFallback />}>
+        <CategoryPageContent params={params} />
       </Suspense>
     </main>
   );
