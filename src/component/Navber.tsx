@@ -8,8 +8,15 @@ import { useRouter } from "next/navigation";
 import logo from "../image/Stack (1).png";
 import { authClient } from "@/lib/auth-client";
 
+type Category = {
+  id: string | number;
+  slug: string;
+  icon: string;
+  nameBn: string;
+};
+
 const Navber = () => {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,9 +47,9 @@ const Navber = () => {
         const result = await res.json();
 
         if (Array.isArray(result)) {
-          setCategories(result);
+          setCategories(result as Category[]);
         } else if (Array.isArray(result.data)) {
-          setCategories(result.data);
+          setCategories(result.data as Category[]);
         }
       } catch (error) {
         console.error("Failed to fetch categories:", error);
@@ -82,8 +89,6 @@ const Navber = () => {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-
-        {/* Logo, date and user menu */}
         <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
           <div className="flex min-w-0 items-center gap-3">
             <Image
@@ -108,7 +113,6 @@ const Navber = () => {
             </div>
           </div>
 
-          {/* User dropdown */}
           <div className="relative shrink-0">
             {isPending ? (
               <span className="text-sm text-gray-400">লোড হচ্ছে...</span>
@@ -189,7 +193,6 @@ const Navber = () => {
           </div>
         </div>
 
-        {/* Category navigation */}
         <nav className="flex items-center overflow-x-auto pt-3 pb-1 text-sm">
           <div className="flex items-center gap-6 whitespace-nowrap">
             <Link
