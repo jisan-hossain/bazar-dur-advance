@@ -3,7 +3,7 @@ import { Geist, Geist_Mono, Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import Footer from "@/component/Footer";
 import Navbar from "@/component/Navber";
-
+import Providers from "./Providers";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,6 +39,7 @@ export default function RootLayout({
       <body className={`${hindSiliguri.className} min-h-full flex flex-col`}>
        <Navbar/>
         {children}
+        <Providers />
         <Footer/>
       </body>
     </html>
