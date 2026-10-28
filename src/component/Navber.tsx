@@ -5,18 +5,11 @@ import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import logo from "../image/Stack (1).png";
-
-interface Category {
-  id: string;
-  slug: string;
-  nameBn: string;
-  icon: string;
-}
+import { authClient } from "@/lib/auth-client";
 
 const Navber = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -24,16 +17,17 @@ const Navber = () => {
 
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const user = session?.user;
 
   useEffect(() => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
-
-    setCurrentDate(new Date().toLocaleDateString("bn-BD", options));
+    setCurrentDate(
+      new Date().toLocaleDateString("bn-BD", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
 
     async function fetchCategories() {
       try {
@@ -41,9 +35,7 @@ const Navber = () => {
           "https://openapi.programming-hero.com/api/bazardor/categories"
         );
 
-        if (!res.ok) {
-          throw new Error("Category fetch failed");
-        }
+        if (!res.ok) throw new Error("Category fetch failed");
 
         const result = await res.json();
 
@@ -62,135 +54,133 @@ const Navber = () => {
     fetchCategories();
   }, []);
 
-  const handleLogout = async () => {
-    if (loggingOut) return;
-
-    setLoggingOut(true);
-
+  async function handleLogout() {
     try {
+      setLoggingOut(true);
+      setMenuOpen(false);
+
       const { error } = await authClient.signOut();
 
       if (error) {
         console.error("Logout failed:", error);
-        alert("লগ আউট করা যায়নি। আবার চেষ্টা করুন।");
+        alert("লগআউট করা যায়নি। আবার চেষ্টা করুন।");
         return;
       }
 
-      setMenuOpen(false);
-      router.replace("/");
+      router.push("/sign-in");
       router.refresh();
     } catch (error) {
       console.error("Logout error:", error);
-      alert("লগ আউট করার সময় সমস্যা হয়েছে।");
+      alert("লগআউট করতে সমস্যা হয়েছে।");
     } finally {
       setLoggingOut(false);
     }
-  };
+  }
+
+  const initial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "U";
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        {/* Logo and User Profile */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+
+        {/* Logo, date and user menu */}
+        <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div className="flex min-w-0 items-center gap-3">
             <Image
               src={logo}
               alt="বাজার দর লোগো"
               height={45}
               width={45}
-              className="rounded-lg object-contain"
+              className="shrink-0 rounded-lg object-contain"
             />
 
             <div>
               <Link
                 href="/"
-                className="text-xl font-bold text-gray-900 hover:text-emerald-600 transition"
+                className="text-xl font-bold text-gray-900 transition hover:text-emerald-600"
               >
                 বাজার দর
               </Link>
 
-              <p className="text-xs text-gray-500 font-medium">
+              <p className="text-xs font-medium text-gray-500">
                 {currentDate || "লোড হচ্ছে..."}
               </p>
             </div>
           </div>
 
-          {/* Authentication */}
-          <div className="flex items-center gap-3 self-end sm:self-auto">
+          {/* User dropdown */}
+          <div className="relative shrink-0">
             {isPending ? (
-              <span className="text-sm text-gray-400">
-                লোড হচ্ছে...
-              </span>
-            ) : session?.user ? (
-              <div className="relative">
+              <span className="text-sm text-gray-400">লোড হচ্ছে...</span>
+            ) : user ? (
+              <>
                 <button
                   type="button"
                   onClick={() => setMenuOpen((prev) => !prev)}
                   aria-expanded={menuOpen}
-                  className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 transition"
+                  aria-label="User menu"
+                  className="flex items-center gap-2 rounded-xl border border-gray-100 px-2 py-2 transition hover:bg-gray-50 sm:px-3"
                 >
-                  {session.user.image ? (
-                    <img
-                      src={session.user.image}
-                      alt="Profile"
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold">
-                      {session.user.name?.charAt(0)?.toUpperCase() || "U"}
-                    </span>
-                  )}
-
-                  <span className="max-w-[130px] truncate text-sm font-semibold text-gray-800">
-                    {session.user.name || "আমার প্রোফাইল"}
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-700">
+                    {initial}
                   </span>
 
-                  <span className="text-gray-500">⌄</span>
+                  <span className="hidden max-w-32 truncate text-sm font-semibold text-gray-800 sm:block">
+                    {user.name || user.email}
+                  </span>
+
+                  <span className="text-xs text-gray-500">
+                    {menuOpen ? "▲" : "▼"}
+                  </span>
                 </button>
 
                 {menuOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Close menu"
-                      className="fixed inset-0 z-10 cursor-default"
-                      onClick={() => setMenuOpen(false)}
-                    />
+                  <div className="absolute right-0 top-full z-[60] mt-2 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+                    <div className="border-b border-gray-100 px-4 py-3">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {user.name || "ব্যবহারকারী"}
+                      </p>
 
-                    <div className="absolute right-0 top-full mt-2 z-20 w-56 rounded-xl border border-gray-100 bg-white p-3 shadow-lg">
-                      <div className="border-b border-gray-100 px-2 pb-3 mb-2">
-                        <p className="text-sm font-semibold text-gray-800">
-                          {session.user.name}
-                        </p>
-                        <p className="mt-1 break-all text-xs text-gray-500">
-                          {session.user.email}
-                        </p>
-                      </div>
+                      <p className="truncate text-xs text-gray-500">
+                        {user.email}
+                      </p>
+                    </div>
+
+                    <div className="p-2">
+                      <Link
+                        href="/profile"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                      >
+                        <span>👤</span>
+                        আমার প্রোফাইল
+                      </Link>
 
                       <button
                         type="button"
                         onClick={handleLogout}
                         disabled={loggingOut}
-                        className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
-                        {loggingOut ? "লগ আউট হচ্ছে..." : "↪ লগ আউট"}
+                        <span>↪</span>
+                        {loggingOut ? "লগআউট হচ্ছে..." : "লগআউট"}
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
-              </div>
+              </>
             ) : (
               <div className="flex items-center gap-2">
                 <Link
                   href="/sign-in"
-                  className="rounded-lg border border-emerald-600 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 transition"
+                  className="rounded-lg border border-emerald-600 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
                 >
                   লগইন
                 </Link>
 
                 <Link
                   href="/sign-up"
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+                  className="hidden rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 sm:inline-block"
                 >
                   রেজিস্টার
                 </Link>
@@ -199,26 +189,27 @@ const Navber = () => {
           </div>
         </div>
 
-        {/* Categories Navigation */}
-        <div className="flex items-center overflow-x-auto pt-3 pb-1 text-sm no-scrollbar">
-          <div className="flex items-center space-x-6 whitespace-nowrap">
+        {/* Category navigation */}
+        <nav className="flex items-center overflow-x-auto pt-3 pb-1 text-sm">
+          <div className="flex items-center gap-6 whitespace-nowrap">
             <Link
               href="/"
-              className="text-emerald-600 font-semibold hover:text-emerald-700 flex items-center gap-1"
+              className="flex items-center gap-1 font-semibold text-emerald-600 hover:text-emerald-700"
             >
-              <span>🏠</span> হোম
+              <span>🏠</span>
+              হোম
             </Link>
 
             {loading ? (
-              <span className="text-gray-400 text-xs animate-pulse">
+              <span className="animate-pulse text-xs text-gray-400">
                 ক্যাটাগরি লোড হচ্ছে...
               </span>
             ) : (
               categories.map((cat) => (
                 <Link
-                  key={cat.id}
+                  key={cat.id || cat.slug}
                   href={`/category/${cat.slug}`}
-                  className="text-gray-600 hover:text-emerald-600 font-medium transition-colors flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 font-medium text-gray-600 transition-colors hover:text-emerald-600"
                 >
                   <span>{cat.icon}</span>
                   <span>{cat.nameBn}</span>
@@ -226,7 +217,7 @@ const Navber = () => {
               ))
             )}
           </div>
-        </div>
+        </nav>
       </div>
     </header>
   );
